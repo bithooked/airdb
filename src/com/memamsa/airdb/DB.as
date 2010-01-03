@@ -349,7 +349,7 @@ package com.memamsa.airdb
 					case Field.VarChar:
 						var lim:String = '255';
 						stmt += ' VARCHAR';
-						if (fieldSpec.length > 2 && fieldSpec[2].limit) {
+						if (fieldSpec.length > 2 && fieldSpec[2] && fieldSpec[2].limit) {
 							lim = fieldSpec[2].limit.toString();
 						}
 						stmt += '(' + lim + ')';
