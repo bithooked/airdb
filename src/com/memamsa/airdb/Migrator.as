@@ -347,6 +347,39 @@ package com.memamsa.airdb
 		  readTableSchema();
 		}
 		
+		
+		/** 
+		* Create an index corresponding to the model. 
+		* 
+		* @param name The index name 
+		* @param columns The columns to be included.  These should be objects with
+		* two properties, 'name' and (optionally) 'order' which should be 'ASC' or 'DESC'.
+		* 
+		**/		
+		public function createIndex(name:String, columns:Array):void {
+			stmt.text = "CREATE INDEX IF NOT EXISTS '" + name + "' ON " + mStoreName + " (";
+			var first:Boolean = true;
+			for each (var column:Object in columns) {
+				if (column.hasOwnProperty("name")) {
+					if (first) {
+						first = false;
+					} else {
+						stmt.text += ",";
+					}
+
+					stmt.text += "'" + column.name + "'";
+					if (column.hasOwnProperty("order") && (column.order == "ASC" || column.order == "DESC")) {
+						stmt.text += " " + column.order;
+					} 
+				}
+			} 
+				
+				
+			stmt.text += ")";
+			stmt.execute();
+		}
+		
+		
 		/**
 		* Construct a join table for a has_and_belongs_to_many association.
 		* The join table has two columns corresponding to the foreign_keys of 
