@@ -855,5 +855,28 @@ package com.memamsa.airdb
 				}
 			}
 		}
+		
+		private function convertObjectsToThisType(objects:Array):Array {
+			var thisTypeArray:Array = new Array();
+			var klass:Class;
+			try {
+				klass = flash.utils.getDefinitionByName(getQualifiedClassName(this)) as Class;
+			} catch (error:Error) {
+				klass = flash.utils.getDefinitionByName("com.memamsa.airdb.Modeler") as Class;
+			}
+			for each (var object:Object in objects) {
+				var thisTypeObject:Object = new klass;
+				for (var propertyName:String in object) {
+					try {
+						thisTypeObject[propertyName] = object[propertyName];
+					// ignore errors, not all properties can be set.
+					} catch (error:Error) {}
+				}
+				thisTypeArray.push(thisTypeObject);
+			}
+
+			return thisTypeArray;
+		}
+
 	}
 }

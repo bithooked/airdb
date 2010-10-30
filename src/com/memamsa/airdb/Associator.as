@@ -155,8 +155,8 @@ package com.memamsa.airdb
 		/**
 		* Get the table name for the association target 
 		**/
-		public function get target():String {
-			return targetStoreName;
+		public function get target():* {
+			return myTarget as targetKlass;
 		}
 		
 		/**
