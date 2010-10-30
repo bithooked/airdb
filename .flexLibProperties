@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<flexLibProperties version="1">
+  <includeClasses>
+    <classEntry path="com.memamsa.airdb.Associator"/>
+    <classEntry path="com.memamsa.airdb.DB"/>
+    <classEntry path="com.memamsa.airdb.IMigratable"/>
+    <classEntry path="com.memamsa.airdb.Inflector"/>
+    <classEntry path="com.memamsa.airdb.Migrator"/>
+    <classEntry path="com.memamsa.airdb.Modeler"/>
+    <classEntry path="com.memamsa.airdb.Reflector"/>
+    <classEntry path="com.memamsa.airdb.SchemaInfo"/>
+    <classEntry path="example.Comment"/>
+    <classEntry path="example.Post"/>
+    <classEntry path="example"/>
+  </includeClasses>
+  <includeResources/>
+  <namespaceManifests/>
+</flexLibProperties>
