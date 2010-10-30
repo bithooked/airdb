@@ -6,5 +6,8 @@ bin-debug/*
 .settings
 .settings/*
 *.tmproj
+<<<<<<< .merge_file_CptBJ1
 .DS_Store
 
+=======
+>>>>>>> .merge_file_YOvrtY

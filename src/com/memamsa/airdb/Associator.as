@@ -267,13 +267,13 @@ package com.memamsa.airdb
 		* @see Modeler#findAll
 		* 
 		**/
-		public function findAll(query:Object):Array {
+		public function findAll(query:Object, page:int=1, perPage:int=0):Array {
 			if (!mySource['id']) return [];
 			if (myType == HAS_AND_BELONGS_TO_MANY || myType == HAS_MANY_THROUGH) {
 				var query:Object = construct_query(query);
-				return myTarget.findAll(query);
+				return myTarget.findAll(query, page, perPage);
 			} else if (myType == HAS_MANY) {
-			  return myTarget.findAll({conditions: sourceForeignKey + '=' + mySource['id']});
+			  return myTarget.findAll({conditions: sourceForeignKey + '=' + mySource['id']}, page, perPage);
 			}
 			return [];
 		}
