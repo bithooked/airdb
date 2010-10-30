@@ -354,27 +354,17 @@ package com.memamsa.airdb
 		* conjugated from the table names being associated. 
 		* 
 		* @param klass The class for the other model to be associated with. 
-		*
-		* @param joinAttr (optional) Additional attributes for the join 
-		* relationship. Specified as an array of fieldSpec arrays. 
 		* 
 		* @see Associator
 		* @see DB#mapJoinTable
 		* @see DB#mapForeignKey
-		* @see Migrator#column
-		* @see DB#fieldMap		
 		**/
-		public function joinTable(klass:Class, joinAttr:Array=null):void {
+		public function joinTable(klass:Class):void {
 			var jtName:String = DB.mapJoinTable(mKlass, klass);
 			var defs:Array = [
 				DB.fieldMap([DB.mapForeignKey(mKlass), DB.Field.Integer]),
 				DB.fieldMap([DB.mapForeignKey(klass), DB.Field.Integer])
 			];
-			if (joinAttr) {
-				for each (var fspec:Array in joinAttr) {
-					defs.push(DB.fieldMap(fspec));
-				}
-			}
 			stmt.text = "CREATE TABLE IF NOT EXISTS " + jtName + 
 				" (" + defs.join(',') + ")"; 
 			stmt.execute();	
@@ -393,7 +383,7 @@ package com.memamsa.airdb
 		  var bfName:String = DB.mapForeignKey(klass);
 		  column(bfName, DB.Field.Integer, {'default': 0});
 		}
-		
+	
 	  private function readTableSchema():void {
 	    mTableSchema = null;
 	    mAddedColumns = new Object();

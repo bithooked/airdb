@@ -1,4 +1,4 @@
-package com.memamsa.airdb 
+package com.memamsa.airdb
 {
 	import flash.data.SQLResult;
 	import flash.data.SQLStatement;
@@ -61,12 +61,10 @@ package com.memamsa.airdb
 	**/
 	public class Associator extends Proxy
 	{
-		public static const HAS_AND_BELONGS_TO_MANY:String = "has_and_belongs_to_many";
-		public static const HAS_ONE:String = "has_one";
-		public static const HAS_MANY:String = "has_many";
-		public static const BELONGS_TO:String = "belongs_to";
-		
-		public static const ALL:int = 0;
+	  public static const HAS_AND_BELONGS_TO_MANY:String = "has_and_belongs_to_many";
+    public static const HAS_ONE:String = "has_one";
+    public static const HAS_MANY:String = "has_many";
+    public static const BELONGS_TO:String = "belongs_to";
 		
 		// Associator maps a source property to a target object
 		// Invoked methods are handled by the Associator itself or passed onto 
@@ -132,8 +130,8 @@ package com.memamsa.airdb
 		/**
 		* Get the table name for the association target 
 		**/
-		public function get target():* {
-			return myTarget as targetKlass;
+		public function get target():String {
+			return targetStoreName;
 		}
 		
 		/**
@@ -198,7 +196,7 @@ package com.memamsa.airdb
 		public function get count():int {
 			if (!mySource['id']) return 0;
 			if (myType == HAS_ONE || myType == BELONGS_TO) {
-			  return ((typeof(myTarget) != 'undefined' && myTarget) ? 1 : 0);
+				return 1;
 			}
 			if (myType == HAS_AND_BELONGS_TO_MANY) {
 				var query:Object = construct_query();
@@ -256,194 +254,6 @@ package com.memamsa.airdb
 		}
 		
 		/**
-		* Set attributes on the association. 
-		* 
-		* Associations of type has_and_belongs_to_many can have attributes as
-		* part of the mapping between the source and target models. Use setAttr
-		* to set the values for these attributes, either for a single target
-		* or for all of the many targets associated with the source.
-		* 
-		* @example A blog Post has many Tags and a Tag is associated with many Post
-		* A logged in reader (User) can vote on the tagggings for the post. We can
-		* track the vote counts for each tagging
-		* <listing version="3.0"> 
-		* [Association type="has_and_belongs_to_many" name="tags" class="example.Tag"]
-		* dynamic public class Post extends Modeler {
-		* 		private static var migrations:Migrator = new Migrator(
-		*				Post, {id: true}, 
-		*				[
-		*					function(my:Migrator):void {
-		*						my.createTable(function():void {
-		*							my.column('name', DB.Field.VarChar, {limit: 255});
-		*							my.columnTimestamps();
-		*						});
-		*					}, 
-		*					function(my:Migrator):void {
-		*						var tagVotesCol:Array = ['votes', DB.Field.Integer, {
-		*							'default': 1}
-		*						];					
-		*						my.joinTable(Photo, [tagVotesCol]);
-		*					},
-		*				]
-		* 		)
-		* }
-		* // Push as usual to create a new association and corresponding join row
-		* var post:Post = new Post();
-		* var flex:Tag = new Tag().find({name: 'flex'});
-		* post.tags.push(flex);
-		* 
-		* // Update the votes for a given for some post
-		* numVotes = post.tags.getAttrVal('votes', flex.id);		
-		* post.tags.setAttr({votes: numVotes + 1}, flex.id);
-		* 
-		* // Reset the votes for all tags for a given post
-		* post.tags.setAttr({votes: 1});
-		* </listing>
-		*
-		* @param keyvals An Object whose keys map to the column names for the join
-		* table attributes. The corresponding values are used to update the fields
-		* for the matching join table record(s).
-		* 
-		* @param target A Modeler object or an Integer rowID to match a specific
-		* join table row. This value is used to match the foreign key field 
-		* corresponding to the association target. Implicit in the call to this 
-		* method is the source, since the method was invoked via the source object
-		* for the association. 
-		* @default ALL Acts on all the targets associated with the source.
-		* 
-		* @return The number of join table rows updated. 
-		* 
-		* @see Migrator#joinTable
-		* @see findAllByAttr
-		* @see countAllByAttr
-		**/
-		public function setAttr(keyvals:Object, target:* = Associator.ALL):int {
-			if (myType != HAS_AND_BELONGS_TO_MANY) {
-				throw new Error(myType + '. Join table attributes unsupported');
-			}
-			var sql:String = "UPDATE " + joinTable + " SET ";
-			var uc:Array = [];
-			for (var key:String in keyvals) {
-				uc.push(key + '=' + DB.sqlMap(keyvals[key]));
-			}
-			sql += uc.join(', ');
-			sql += joinConditions({}, target);
-			var result:SQLResult = DB.execute(sql);
-			if (!result || !result.rowsAffected) {
-				throw new Error('setAttr. Update failed');
-			}
-			return result.rowsAffected;
-		}
-		
-		/**
-		* Find all association targets with matching association attributes.
-		* 
-		* Associations of type has_and_belongs_to_many can have attributes as
-		* part of the mapping between the source and target models. Use this 
-		* method to find all associated targets matching the specified 
-		* association attributes.
-		* 
-		* @param keyvals An Object whose keys map to the column names for the join
-		* table attributes, and whose values specify the conditions for the field 
-		* values in the query. 
-		* 
-		* @see setAttr
-		* @see countAllByAttr
-		* @see Migrator#joinTable		
-		**/
-		public function findAllByAttr(keyvals:Object):Array {
-			if (myType != HAS_AND_BELONGS_TO_MANY) {
-				throw new Error(myType + '. Join table attributes unsupported');
-			}
-			var cond:String = "SELECT " + targetForeignKey + " FROM " + joinTable;
-			cond += joinConditions(keyvals, ALL);
-			return myTarget.findAll({
-				conditions: 'id in (' + cond + ')'
-			});
-		}
-		
-		/**
-		* Get the value for a given attribute for a specific target 
-		*
-		* @param name The attribute name
-		* 
-		* @param target The Modeler object, or Integer id for a specific
-		* target. Implicit in the call is a particular source object, thus 
-		* defining a particular association corresponding to a single row in
-		* the join table. 
-		* 
-		* @return The value for the association attribute.
-		* 
-		* @see setAttr
-		**/
-		public function getAttrVal(name:String, target:*):* {
-			if (myType != HAS_AND_BELONGS_TO_MANY) {
-				throw new Error(myType + '. Join table attributes unsupported');
-			}
-			var sql:String = "SELECT " + name + " FROM " + joinTable;
-			sql += joinConditions({}, target);
-			var result:SQLResult = DB.execute(sql);
-			if (result && result.data && result.data.length >= 1) {
-				return result.data[0][name];
-			}
-			return null;
-		}
-		
-		/** 
-		* Count the number of associated targets matching specified criteria.
-		* 
-		* @param keyvals An Object whose key-value pairs specify column names
-		* and their field values in the join table. 
-		* 
-		* @target A Modeler or Integer to specify a particular association 
-		* target. Possible return values in such a case can be 0 or 1. 
-		* 
-		* @return An integer count. 
-		* 
-		* @see setAttr
-		* @see findAllByAttr
-		* @see Migrator#joinTable		
-		**/
-		public function countByAttr(keyvals:*, target:* = Associator.ALL):int {
-			if (myType != HAS_AND_BELONGS_TO_MANY) {
-				throw new Error(myType + '. Join table attributes unsupported');
-			}
-			var sql:String = "SELECT COUNT(*) as count FROM " + joinTable;
-			sql += joinConditions(keyvals, target);
-			var result:SQLResult = DB.execute(sql);
-			if (result && result.data && result.data.length >= 1) {
-				return result.data[0].count;
-			} 
-			return -1;
-		}
-		
-		// construct the WHERE clause for join table queries. 
-		private function joinConditions(keyvals:*, target:*):String {			
-			if (mySource.unsaved) mySource.save();
-			if (!mySource['id']) {
-				throw new Error(targetStoreName + ': Source ID is unknown');
-			}			
-			var conditions:String = " WHERE ";
-			conditions += '(' + sourceForeignKey + " = " + mySource['id'] + ')';
-			if (keyvals is String) {
-				conditions += ' AND (' + keyvals + ')';
-			} else if (keyvals is Object) {
-				var cond:Array = [];
-				for (var key:String in keyvals) {
-					cond.push('(' + key + " = " + DB.sqlMap(keyvals[key]) + ')');
-				}
-				if (cond.length > 0) {
-					conditions += ' AND ' + cond.join(' AND ');
-				}
-			}
-			if (target && target is Modeler) target = target.id;
-			if (target && target is Number && target != Associator.ALL) {
-				conditions += ' AND (' + targetForeignKey + ' = ' + target + ')'; 
-			}
-			return conditions;
-		}
-		
-		/**
 		* Create an association between the source and the specified target object.
 		* Saves the source and the target if either of them are new records. 
 		* 
@@ -486,9 +296,7 @@ package com.memamsa.airdb
 		      obj[sourceForeignKey] = mySource['id'];
 		      return obj.save(); 
 		    }			  
-			  if (obj.unsaved) {
-			  	obj.save();
-			  }
+			  if (obj.unsaved) obj.save();
 			  if (!obj['id']) {
 			    throw new Error(targetStoreName + ": target has no id");
 			  }
@@ -565,35 +373,25 @@ package com.memamsa.airdb
 		    return myTarget.remove();
 		  }
 			if (myType == HAS_AND_BELONGS_TO_MANY) {
-				if (obj is Modeler && 
-				  obj.className != myTarget.className &&
-				  obj.className != mySource.className) {
-				  throw new Error(myType + '.remove: Not an associated source or target');
-				}
-				var anchorCond:String = sourceForeignKey + ' = ' + mySource['id'];
-				var toDelete:String;
+				if (obj is Modeler && obj.className != myTarget.className) return false;
 				var ids:Array = [];
-				if (obj is Modeler && obj.className == mySource.className) {
-				  toDelete = "";
-				} else {
-				  anchorCond += ' AND ' + targetForeignKey;
-				  if (obj is Modeler) {
-  				  ids.push(obj['id']);
-  				} else if (obj is Array) {
-  					for (var ix:int; ix < obj.length; ix++) {
-  						var ao:* = obj[ix];
-  						if (ao is Modeler && ao['className'] == myTarget.className) {
-  							ids.push(ao['id']);
-  						} else if (ao is int || ao is uint) {
-  							ids.push(ao);
-  						}
-  					}
+				if (obj is Modeler) {
+					ids.push(obj['id']);
+				} else if (obj is Array) {
+					for (var ix:int; ix < obj.length; ix++) {
+						var ao:* = obj[ix];
+						if (ao is Modeler && ao['className'] == myTarget.className) {
+							ids.push(ao['id']);
+						} else if (ao is int || ao is uint) {
+							ids.push(ao);
+						}
 					}
-					toDelete = ' IN (' + ids.join(',') + ')';
 				}
 				var stmt:SQLStatement = new SQLStatement();
 				stmt.sqlConnection = DB.getConnection();
-				stmt.text = "DELETE FROM " + joinTable + " WHERE " + anchorCond + toDelete;
+				stmt.text = "DELETE FROM " + joinTable + " WHERE " + 
+					sourceForeignKey + ' = ' + mySource['id'] + ' AND ' + 
+					targetForeignKey + ' IN (' + ids.join(',') + ')';
 				try {
 					stmt.execute();
 					return true;				
@@ -612,18 +410,15 @@ package com.memamsa.airdb
 		} 
 		
 		override flash_proxy function getProperty(name:*):* {
-			if (myType == BELONGS_TO || myType == HAS_ONE) return myTarget[name];
+		  if (myType == BELONGS_TO || myType == HAS_ONE) return myTarget[name];
 			return undefined;
 		}
 		
 		override flash_proxy function setProperty(name:*, value:*):void {
-			if (myType == BELONGS_TO || myType == HAS_ONE) myTarget[name] = value;
+		  if (myType == BELONGS_TO || myType == HAS_ONE) myTarget[name] = value;
 		}
 		
 		override flash_proxy function callProperty(name:*, ...args):* {
-			if (myType == BELONGS_TO || myType == HAS_ONE) {
-				return myTarget[name.toString()].apply(myTarget, args);
-			}
 			return false;
 		}
 		

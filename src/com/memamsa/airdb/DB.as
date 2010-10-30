@@ -8,9 +8,7 @@ package com.memamsa.airdb
 	import flash.events.SQLEvent;
 	import flash.filesystem.File;
 	import flash.utils.getQualifiedClassName;
-	import flash.data.SQLStatement;
-	import flash.data.SQLResult;
-		
+	
 	/**
 	*  DB constants, helpers and utilities. 
 	*  
@@ -293,12 +291,11 @@ package com.memamsa.airdb
 				if (value.length > 0) return "'" + value + "'";
 				if (value.length == 0) return '';
 			} else if (value is Date) {
-			  // store the local date/time as 'YYYY-mm-dd HH:MM:SS'
 				var rstr:String = "";
 				var extr:Array = [
-					'fullYear', 'month', 'date', 
+					'fullYearUTC', 'monthUTC', 'dateUTC', 
 					null,
-					'hours', 'minutes', 'seconds', 
+					'hoursUTC', 'minutesUTC', 'secondsUTC', 
 					null
 				] 
 				var dstr:Array = [];
@@ -308,7 +305,7 @@ package com.memamsa.airdb
 					var s:String;
 					if (extr[ix]) {
 						d = value[extr[ix]];
-						d += (extr[ix] == 'month') ? 1 : 0;
+						d += (extr[ix] == 'monthUTC') ? 1 : 0;
 						s = (d < 10) ? "0" + d.toString() : d.toString();
 						dstr.push(s);
 					} else {
@@ -349,7 +346,7 @@ package com.memamsa.airdb
 					case Field.VarChar:
 						var lim:String = '255';
 						stmt += ' VARCHAR';
-						if (fieldSpec.length > 2 && fieldSpec[2] && fieldSpec[2].limit) {
+						if (fieldSpec.length > 2 && fieldSpec[2].limit) {
 							lim = fieldSpec[2].limit.toString();
 						}
 						stmt += '(' + lim + ')';
@@ -369,6 +366,9 @@ package com.memamsa.airdb
 						switch (optionKey) {
 							case 'limit' :
 								// Handled under VarChar above.  Do nothing.
+								break;
+							case 'default' :
+								stmt += ' DEFAULT ' + option;
 								break;
 							case 'defaultValue' :
 							case 'default': 
@@ -465,28 +465,5 @@ package com.memamsa.airdb
 			}
 			return Inflector.lowerFirst(cls) + '_id';			
 		}				
-		
-		/**
-		* Specify a SQL statement to be executed directly 
-		* 
-		* @param sql A valid SQL statement 
-		* 
-		* @return A SQLResult
-		**/
-		public static function execute(sql:String):SQLResult {
-			if (!dbInit) {
-				throw new Error('DB not inited');
-			}
-			var stmt:SQLStatement = new SQLStatement();
-			stmt.sqlConnection = DB.getConnection();
-			stmt.text = sql;
-			try {
-				stmt.execute();
-			} catch (error:SQLError) {
-				trace('ERROR: ' + error.details);
-				return null;
-			}
-			return stmt.getResult();			
-		}
 	}
 }

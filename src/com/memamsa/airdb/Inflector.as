@@ -146,9 +146,9 @@ package com.memamsa.airdb
 			[/person$/i, "people"],					// person, salesperson
 			[/man$/i, "men"],						// man, woman, spokesman
 			[/child$/i, "children"],				// child
-			[/media$/i, "media"],
 			[/s$/i, "s"],							// no change (compatibility)
-			[/$/, "s"]
+			[/$/, "s"],
+			[/media$/i, "media"]
 		];
 		
 		protected static var singularRules:Array = [
@@ -167,8 +167,8 @@ package com.memamsa.airdb
 			[/status$/i, "status"],
 			[/children$/i, "child"],
 			[/news$/i, "news"],
-			[/media$/i, "media"],
-			[/s$/i, ""]
+			[/s$/i, ""],
+			[/media$/i, "media"]
 		];
 	}
 }

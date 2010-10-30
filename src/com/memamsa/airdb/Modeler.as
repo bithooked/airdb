@@ -93,7 +93,6 @@ package com.memamsa.airdb
 			for each (var fname:* in model.prototype.fieldNames) {
 				fieldValues[fname] = null;
 			}
-			fieldValues['_rowid'] = null;
 			// set this to be a newly initialized object. 
 			// this allows new ModelClass() to be used for creating new record
 			recNew = true;
@@ -177,7 +176,7 @@ package com.memamsa.airdb
 			if (!keyvals) return false;
 				
 			var conditions:Array = [];
-			stmt.text = "SELECT ROWID as _rowid, * FROM " + mStoreName + " WHERE ";
+			stmt.text = "SELECT *, ROWID FROM " + mStoreName + " WHERE ";
 			for (var key:String in keyvals) {
 				var clause:String = "";
 				if (!fieldValues.hasOwnProperty(key)) {
@@ -207,18 +206,6 @@ package com.memamsa.airdb
 				stmt.clearParameters();
 			}
 			return true;
-		}
-		
-		/**
-		* Reload this previously loaded instance to obtain latest field values. 
-		* All unsaved changes are lost. 
-		* @return <code>true</code> if reload was successful, <code>false</code>
-		* otherwise.
-		**/
-		public function reload():Boolean {
-		  if (!fieldValues.hasOwnProperty('_rowid') || 
-		      !fieldValues['_rowid']) return false;
-		  return load({_rowid: fieldValues['_rowid']});
 		}
 		
 		/**
@@ -306,15 +293,6 @@ package com.memamsa.airdb
 		}
 		
 		/**
-		* A front-end to findAll method 
-		* Returns objects of the appropriate Model type
-		**/
-		public function getAll(query: Object, page:int=1, perPage:int=0):Array {
-			var obj:Array = findAll(query, page, perPage);
-			return convertObjectsToThisType(obj);
-		}
-		
-		/**
 		* Count the total number of records in the table for this model.
 		* 
 		* @return The total record count
@@ -397,10 +375,12 @@ package com.memamsa.airdb
 		    throw new Error("Can't modify or save deleted data");
 		  }
 			if (!values && !newRecord) return false;
+			
 			var key:String;
 			if (!values && newRecord) {
 				values = fieldValues;
 			}
+			
 			// Apply specified values to ensure all fieldValues are the latest.
 			for (key in values) {
 				if (!fieldValues.hasOwnProperty(key)) {
@@ -418,13 +398,12 @@ package com.memamsa.airdb
 			timeStamp('created_at');
 			
 			var cols:Array = [];
-			var vals:Array = [];
 			for (key in fieldValues) {
 				if (!fieldValues[key]) continue;
   			    cols.push(key);
   			    stmt.parameters[":" + key] = values[key];
 			}
-			
+
 			stmt.text = "INSERT INTO " + mStoreName;			
 			stmt.text += " (" + cols.join(',') + ")";
 			stmt.text += " VALUES (:" + cols.join(',:') + ")";
@@ -432,10 +411,7 @@ package com.memamsa.airdb
 				stmt.execute();
 				var result:SQLResult = stmt.getResult();
 				if (result && result.complete) {
-					fieldValues['_rowid'] = result.lastInsertRowID;
-					if (fieldValues.hasOwnProperty('id')) {
-					  fieldValues['id'] = fieldValues['_rowid'];
-					}
+					fieldValues['id'] = result.lastInsertRowID;
     			recLoaded = true;					
 				}
 			} catch (error:SQLError) {
@@ -452,12 +428,12 @@ package com.memamsa.airdb
 		* Update the database record currently loaded into the model object. 
 		* Only updates changed fields or those for which new values are provided.
 		* 
-		* @param keyvals An object containing field names as keys and corresponding
-		* field values. These given values override the field values previously 
-		* stored in the instance. 
-		* 
-		* @return <code>true</code> if record was successfully updated, 
-		* <code>false</code> otherwise. 
+    * @param keyvals An object containing field names as keys and corresponding
+    * field values. These given values override the field values previously 
+    * stored in the instance. 
+    * 
+    * @return <code>true</code> if record was successfully updated, 
+    * <code>false</code> otherwise. 
 		* 
 		* @see Modeler#save
 		* @see Modeler#updateAll
@@ -481,10 +457,6 @@ package com.memamsa.airdb
 			if (!values && newRecord) {
 			  throw new Error(mStoreName + ".update: Expected create");
 		  }
-		  // records must be loaded before they can be updated
-		  if (!(fieldValues.hasOwnProperty('_rowid') && fieldValues['_rowid'])) {
-		    throw new Error(mStoreName + ".update: No record loaded");
-		  }
 
 			var assigns:Array = [];
 			var key:String;
@@ -496,16 +468,16 @@ package com.memamsa.airdb
 					trace('update: unknown field: ' + key);
 					throw new Error(mStoreName + '.update: Field Unknown: ' + key);
 				}
-				// UNENFORCED: If there exists an 'id' field for this model, 
-				// then the id field value should not be modified directly in update. 
-				// We DO NOT prevent setting or modifying the 'id' field value.
-				
-				if (values[key] && fieldValues[key] != values[key]) {
+				// Assumption: If there exists an 'id' field for this model, 
+				// then the id field value CANNOT be modified directly in update. 
+				// We simply ignore attempts to set the 'id' field value.
+				if (values[key] && fieldValues[key] != values[key] && key != 'id') {
 					fieldValues[key] = values[key];
 					// Note down field names that have changed (for efficient update)
 					changed = true;
 					fieldsChanged[key] = true;
 				}
+				
 			}
 			// Invoke overridable before-update, before-save and validateData hooks.
 			// These hooks get to perform validation or computation using the latest
@@ -516,6 +488,7 @@ package com.memamsa.airdb
 			
 			// Carry out the DB UPDATE if things actually have changed
 			if (changed) {
+
 				for (key in fieldsChanged) {
 					assigns.push(key + " = :" + key);
 					stmt.parameters[":" + key] = fieldValues[key];
@@ -523,17 +496,28 @@ package com.memamsa.airdb
 				stmt.text = "UPDATE " + mStoreName + " SET ";
 				stmt.text += assigns.join(',');
 				
-				// We use the SQLite ROWID integer key to ensure that this specific
-				// record (previosly loaded) is the one that is updated. 
-				stmt.text += " WHERE ROWID = " + fieldValues['_rowid'];
+				// Assumption: we use the 'id' field to ensure that this specific
+				// record is updated. If there is not an 'id' field for the model, 
+				// the UPDATE will apply to all records. 
+				// The ID is either from the fieldValues previously populated with a 
+				// load() or by using the id key in the values passed to this method. 
+				if (recLoaded || values) {
+					if ((values && values.hasOwnProperty('id')) || (fieldValues && fieldValues.hasOwnProperty('id'))) {
+						stmt.text += " WHERE id = " + ((values && values['id']) || fieldValues['id']).toString();
+					} else if (values && values.hasOwnProperty('rowid') || (fieldValues && fieldValues.hasOwnProperty('rowid'))) {
+						stmt.text += " WHERE ROWID = " + ((values && values['rowid']) || fieldValues['rowid']).toString();
+					}
+				}
+				
 				try {
 					stmt.execute();
 				} catch (error:SQLError) {
-					trace(stmt.text + "\nError: Update: " + error.details);
+					trace("Error: update: " + error.details);
 					return false;
 				} finally {
 					stmt.clearParameters();
 				}
+
 				// upon successful update, reflect new values in this object
 				recChanged = false;
 				fieldsChanged = {};
@@ -561,16 +545,15 @@ package com.memamsa.airdb
 		**/
 		public function updateAll(conditions:String, values:Object):uint {
 			resetFields();
+			stmt.text = "UPDATE " + mStoreName + " SET ";
 			var assigns:Array = [];
 			for (var key:String in values) {
 				if (!fieldValues.hasOwnProperty(key)) {
 					trace('update: unknown field: ' + key);
 					throw new Error(mStoreName + '.updateAll: Field Unknown: ' + key);
 				}
-				assigns.push(key + ' = :' + key);
-				stmt.parameters[':' + key] = values[key];
+				assigns.push(key + ' = ' + values[key]);
 			}
-			stmt.text = "UPDATE " + mStoreName + " SET ";			
 			stmt.text += assigns.join(',');
 			if (conditions) {
 				stmt.text += " WHERE " + conditions;
@@ -578,16 +561,14 @@ package com.memamsa.airdb
 			try {
 				stmt.execute();
 				var result:SQLResult = stmt.getResult();
-				if (!result || !result.rowsAffected) {
+				if (!result || !result.data || !result.data.rowsAffected) {
 					trace('updateAll: update failed');
 					return 0;
 				}
-				return result.rowsAffected;				
+				return result.data.rowsAffected;				
 			} catch (error:SQLError) {
 				trace('Error: updateAll: ' + error.details);
 				return 0;
-			}	finally {
-				stmt.clearParameters();
 			}
 			return 0;
 		}
@@ -629,7 +610,7 @@ package com.memamsa.airdb
 		* @see Modeler#beforeUpdate
 		**/		
 		protected function beforeSave():void {}
-
+		
 		/**
 		* Overridable method called before inserting new records. 
 		* @see Modeler#save
@@ -637,42 +618,35 @@ package com.memamsa.airdb
 		* @see Modeler#beforeUpdate
 		**/		
 		protected function beforeCreate():void {}
-
-		/**
-		* Overridable method called before update of existing records. Invoked
-		* <strong>after</strong> the <code>beforeSave()</code> callback. 
-		* @see Modeler#save
-		* @see Modeler#beforeSave
-		* @see Modeler#beforeCreate
-		**/		
+		
+  	/**
+  	* Overridable method called before update of existing records. Invoked
+  	* <strong>after</strong> the <code>beforeSave()</code> callback. 
+  	* @see Modeler#save
+  	* @see Modeler#beforeSave
+  	* @see Modeler#beforeCreate
+  	**/		
 		protected function beforeUpdate():void {}
 
-		/**
-		* Overridable method called before save or create to allow validation of 
-		* field data. Set the return value to control whether to abort or proceed
-		* with the save or create operation. 
-		*  
-		* @return Upon <code>false</code> result, the triggering save or create is
-		* aborted. Return <code>true</code> to allow processing of valid data. 
-		* @see Modeler#save
-		* @see Modeler#beforeSave
-		* @see Modeler#beforeCreate
-		**/		
+  	/**
+  	* Overridable method called before save or create to allow validation of 
+  	* field data. Set the return value to control whether to abort or proceed
+  	* with the save or create operation. 
+  	*  
+  	* @return Upon <code>false</code> result, the triggering save or create is
+  	* aborted. Return <code>true</code> to allow processing of valid data. 
+  	* @see Modeler#save
+  	* @see Modeler#beforeSave
+  	* @see Modeler#beforeCreate
+  	**/		
 		protected function validateData():Boolean {return true;}
 		
 		/** 
 		 * @internal Property Overrides to handle column names and associations 
 		 **/
 		override flash_proxy function hasProperty(name:*):Boolean {
-			var hasProperty:Boolean = fieldValues.hasOwnProperty(name);
-			if (!hasProperty) {
-				var associator:Associator = findAssociation(name);
-				if (associator) {
-					hasProperty = true;
-				}
-			}
-
-			return hasProperty;
+			// TODO: also check associations meta-data
+			return fieldValues.hasOwnProperty(name);
 		} 
 		
 		/**
@@ -770,12 +744,12 @@ package com.memamsa.airdb
 			return (recNew || recChanged);
 		}
     
-		/**
-		* Check if this object fields represent a new record
-		* @return <code>true</code> if this is a new record
-		**/
+    /**
+    * Check if this object fields represent a new record
+    * @return <code>true</code> if this is a new record
+    **/
 		public function get newRecord():Boolean {
-		  return (recNew || !fieldValues['_rowid']);
+		  return (recNew || !fieldValues['id']);
 		}	
 
 		/**
@@ -821,18 +795,13 @@ package com.memamsa.airdb
 				fieldValues[key] = null;
 			}
 			resetState();
-			resetAssociations();
 		}
 		
 		// reset the state - extreme - use with caution
 		protected function resetState():void {
 			recNew = recLoaded = recChanged = recDeleted = false;
 		} 
-		
-		// reset all associations
-		protected function resetAssociations():void {
-		  associations = {}
-		}
+
 		
  		protected function timeStamp(field:String, values:Object=null):void {
 			if (fieldValues.hasOwnProperty(field)) {
@@ -842,28 +811,6 @@ package com.memamsa.airdb
 					fieldValues[field] = new Date();
 				}
 			}
-		}
-		
-		private function convertObjectsToThisType(objects:Array):Array {
-			var thisTypeArray:Array = new Array();
-			var klass:Class;
-			try {
-				klass = flash.utils.getDefinitionByName(getQualifiedClassName(this)) as Class;
-			} catch (error:Error) {
-				klass = flash.utils.getDefinitionByName("com.memamsa.airdb.Modeler") as Class;
-			}
-			for each (var object:Object in objects) {
-				var thisTypeObject:Object = new klass;
-				for (var propertyName:String in object) {
-					try {
-						thisTypeObject[propertyName] = object[propertyName];
-					// ignore errors, not all properties can be set.
-					} catch (error:Error) {}
-				}
-				thisTypeArray.push(thisTypeObject);
-			}
-			
-			return thisTypeArray;
 		}
 	}
 }
