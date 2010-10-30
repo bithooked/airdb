@@ -5,3 +5,6 @@ bin-debug/*
 .project
 .settings
 .settings/*
+*.tmproj
+.DS_Store
+
